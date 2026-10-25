@@ -235,11 +235,12 @@ def gerar_recursos():
     return struct.pack("<HHII", 0x0002, 12, 12 + len(tudo), 1) + tudo
 
 
-MANIFESTO = ("manifest", [(None, "package", TYPE_STRING, PKG), ("a", "versionCode", TYPE_DEC, 5), ("a", "versionName", TYPE_STRING, "2.3")], [
+MANIFESTO = ("manifest", [(None, "package", TYPE_STRING, PKG), ("a", "versionCode", TYPE_DEC, 6), ("a", "versionName", TYPE_STRING, "2.4")], [
     ("uses-sdk", [("a", "minSdkVersion", TYPE_DEC, 21), ("a", "targetSdkVersion", TYPE_DEC, 29)], []),
     ("application", [("a", "label", TYPE_STRING, "Elifoot Novo"), ("a", "icon", TYPE_REF, ID_ICONE), ("a", "theme", TYPE_REF, 0x01030006),
                      ("a", "hardwareAccelerated", TYPE_BOOL, True)], [
         ("activity", [("a", "name", TYPE_STRING, PKG + ".Main"), ("a", "label", TYPE_STRING, "Elifoot Novo"),
+                      ("a", "icon", TYPE_REF, ID_ICONE),
                       ("a", "screenOrientation", TYPE_DEC, 1), ("a", "configChanges", TYPE_HEX, 0x4A0),
                       ("a", "exported", TYPE_BOOL, True)], [
             ("intent-filter", [], [
