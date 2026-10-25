@@ -2,9 +2,10 @@
 
 Gera a mao: classes.dex (formato DEX 035), AndroidManifest.xml binario (AXML), e empacota com o jogo em assets/index.html.
 A assinatura v1 (JAR) e feita depois com jarsigner. targetSdk 29: Android 7 a 15 aceitam APK so com assinatura v1.
+O icone.png ao lado deste script (gerado por gerar_icone.py) vira o icone do app (resources.arsc gerado a mao).
 Uso: python3 gerar_apk.py jogo.html saida-sem-assinatura.apk
 """
-import hashlib, struct, sys, zipfile, zlib
+import hashlib, os, struct, sys, zipfile, zlib
 
 PKG = "br.elifoot.novo"
 CLASSE = "L" + PKG.replace(".", "/") + "/Main;"
@@ -197,9 +198,46 @@ ATTR_ID = {"label": 0x01010001, "name": 0x01010003, "exported": 0x01010010, "scr
            "theme": 0x01010000, "icon": 0x01010002}
 TYPE_REF, TYPE_STRING, TYPE_DEC, TYPE_HEX, TYPE_BOOL = 0x01, 0x03, 0x10, 0x11, 0x12
 
-MANIFESTO = ("manifest", [(None, "package", TYPE_STRING, PKG), ("a", "versionCode", TYPE_DEC, 4), ("a", "versionName", TYPE_STRING, "2.2")], [
+ID_ICONE = 0x7F010000          # pacote 0x7f, tipo 1 (drawable), entrada 0
+ICONE_APK = "res/drawable-nodpi-v4/icone.png"
+
+
+def pool_strings(strs):
+    dados, offs = bytearray(), []
+    for s in strs:
+        offs.append(len(dados))
+        u = s.encode("utf-16-le")
+        dados += struct.pack("<H", len(u) // 2) + u + b"\0\0"
+    alinhar(dados, 4)
+    inicio = 28 + 4 * len(strs)
+    return struct.pack("<HHIIIIII", 0x0001, 28, inicio + len(dados), len(strs), 0, 0, inicio, 0) + \
+        b"".join(struct.pack("<I", o) for o in offs) + bytes(dados)
+
+
+def gerar_recursos():
+    """resources.arsc com um unico recurso: drawable/icone (densidade nodpi) -> ICONE_APK."""
+    valores = pool_strings([ICONE_APK])
+    tipos, chaves = pool_strings(["drawable"]), pool_strings(["icone"])
+    spec = struct.pack("<HHIBBHI", 0x0202, 16, 20, 1, 0, 0, 1) + struct.pack("<I", 0x0100)
+    config = bytearray(64)
+    struct.pack_into("<I", config, 0, 64)
+    struct.pack_into("<H", config, 14, 0xFFFF)          # density = nodpi
+    cab_tipo = 20 + 64
+    entrada = struct.pack("<HHI", 8, 0, 0) + struct.pack("<HBBI", 8, 0, 0x03, 0)
+    tipo = struct.pack("<HHIBBHII", 0x0201, cab_tipo, cab_tipo + 4 + len(entrada), 1, 0, 0, 1, cab_tipo + 4) + \
+        bytes(config) + struct.pack("<I", 0) + entrada
+    nome = "br.elifoot.novo".encode("utf-16-le").ljust(256, b"\0")
+    cab_pac = 288
+    corpo = tipos + chaves + spec + tipo
+    pacote = struct.pack("<HHII", 0x0200, cab_pac, cab_pac + len(corpo), 0x7F) + nome + \
+        struct.pack("<IIIII", cab_pac, 1, cab_pac + len(tipos), 1, 0) + corpo
+    tudo = valores + pacote
+    return struct.pack("<HHII", 0x0002, 12, 12 + len(tudo), 1) + tudo
+
+
+MANIFESTO = ("manifest", [(None, "package", TYPE_STRING, PKG), ("a", "versionCode", TYPE_DEC, 5), ("a", "versionName", TYPE_STRING, "2.3")], [
     ("uses-sdk", [("a", "minSdkVersion", TYPE_DEC, 21), ("a", "targetSdkVersion", TYPE_DEC, 29)], []),
-    ("application", [("a", "label", TYPE_STRING, "Elifoot Novo"), ("a", "theme", TYPE_REF, 0x01030006),
+    ("application", [("a", "label", TYPE_STRING, "Elifoot Novo"), ("a", "icon", TYPE_REF, ID_ICONE), ("a", "theme", TYPE_REF, 0x01030006),
                      ("a", "hardwareAccelerated", TYPE_BOOL, True)], [
         ("activity", [("a", "name", TYPE_STRING, PKG + ".Main"), ("a", "label", TYPE_STRING, "Elifoot Novo"),
                       ("a", "screenOrientation", TYPE_DEC, 1), ("a", "configChanges", TYPE_HEX, 0x4A0),
@@ -287,4 +325,6 @@ if __name__ == "__main__":
         z.writestr("AndroidManifest.xml", gerar_manifesto(), compress_type=zipfile.ZIP_DEFLATED)
         z.writestr("classes.dex", gerar_dex(), compress_type=zipfile.ZIP_DEFLATED)
         z.write(html, "assets/index.html", compress_type=zipfile.ZIP_DEFLATED)
+        z.writestr("resources.arsc", gerar_recursos(), compress_type=zipfile.ZIP_STORED)
+        z.write(os.path.join(os.path.dirname(os.path.abspath(__file__)), "icone.png"), ICONE_APK, compress_type=zipfile.ZIP_STORED)
     print("ok", saida)
