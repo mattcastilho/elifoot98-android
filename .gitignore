@@ -1,0 +1,24 @@
+# Arquivos do Elifoot 98 original e tudo que e gerado a partir deles: uso pessoal, nao publicar
+original/
+**/dados_originais.json
+**/arbitros_originais.json
+**/bandeiras.json
+**/paises.json
+web/elifoot-local.html
+web/elifoot-apk.html
+especificacao/ghidra/
+*.EFT
+*.eft
+*.TXE
+*.txe
+*.EXE
+*.exe
+# APK e chave de assinatura
+*.apk
+*.jks
+*.keystore
+# outros
+__pycache__/
+node_modules/
+*.png
+.DS_Store
