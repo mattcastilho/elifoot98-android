@@ -937,6 +937,36 @@ function melhorOfertaPor(st, idJog) {
   for (const B of st.times) { if (B === H || !elegivel(B, j)) continue; const of = oferta(st, B, j); if (of > melhor) { melhor = of; quem = B; } }
   R.definir(s); return { valor: melhor, clube: quem ? quem.nome : null };
 }
+// ---- Compra direta (NAO existe no Elifoot 98; opcao "compraDireta"). O clube vendedor pede o preco base do leilao
+// (preco * 1.6 * pf, o mesmo do dialogo "Venda de jogador por leilao") multiplicado pela importancia do jogador:
+// titular (entre os 11 mais fortes) x2, reserva x1.3; ja posto a venda pelo clube x1; clube apertado de caixa x0.75.
+const precoBaseLeilao = (st, j) => Math.max(1000, Math.floor(roundP(precoJogador(j, st.m) * 1.6 * (st.pf || 1)) / 1000) * 1000);
+function precoPedido(st, t, j) {
+  const titulares = t.jog.slice().sort((a, b) => b.f - a.f).slice(0, 11);
+  let k = st.aVenda.some(a => a.id === j.id) ? 1 : titulares.includes(j) ? 2 : 1.3;
+  if (t.caixa < 0 || t.caixa * 3 < folha(t)) k *= 0.75;
+  return Math.max(1000, Math.floor(precoBaseLeilao(st, j) * k / 1000) * 1000);
+}
+function motivoNaoCompra(st, t, j) {
+  const H = timePorId(st, st.humano);
+  if (t === H) return "o jogador já é seu";
+  if (ehHumano(st, t)) return "o clube é de outro treinador humano";
+  const m = motivoNaoSai(t, j); if (m) return `o ${t.curto} não o vende: ${m}`;
+  if (H.jog.length >= 24) return "o seu elenco já tem 24 jogadores";
+  if (estrangeiros(H) >= 5 && categoria(j.nac, H.pais) === 2) return "você já tem 5 estrangeiros";
+  return "";
+}
+function comprarJogador(st, idTime, idJog, valor) {
+  const H = timePorId(st, st.humano), t = timePorId(st, idTime), j = t && t.jog.find(q => q.id === idJog);
+  if (!j) return { ok: false, msg: "Jogador não encontrado." };
+  const mot = motivoNaoCompra(st, t, j); if (mot) return { ok: false, msg: `Não é possível: ${mot}.` };
+  if (valor > H.caixa) return { ok: false, msg: "Você não tem esse dinheiro em caixa." };
+  const pede = precoPedido(st, t, j);
+  if (valor < pede) return { ok: false, pede };
+  st.aVenda = st.aVenda.filter(a => a.id !== j.id);
+  transferir(st, t, j, H, valor);
+  return { ok: true, msg: `${j.nome} contratado do ${t.curto} por ${dinheiro(valor)}.` };
+}
 function exigencia(st, j) { return salarioPedido(salario(j.f, 1, st.m), Math.max(st.rodada, 1)); }
 function renovarContrato(st, idJog, valor) {        // Jogador > Renovar contrato: "Nem pensar! Exijo X"
   const H = timePorId(st, st.humano), j = H.jog.find(q => q.id === idJog); if (!j) return { ok: false };
@@ -954,7 +984,7 @@ function responderPedido(st, idJog, aceita) {
   return `${j.nome} não aceitou ficar e foi colocado na lista de transferências.`;
 }
 
-return { substituirNoJogo, sortearCopa, substituirLesionado, precoBilhete, contaPos, estrangeiros, proximaEtapa, jogarEtapa, leiloesPendentes, interesseHumano, resolverLeilao, renovarContrato, exigencia, aceitarExigencia, motivoNaoSai, podeSair, TABELA, MATRIZ, trocarVez, anoDe, ESQUEMAS_ESPECIAIS, criarJogo, cotasDosPaises, ofertasLeilao, venderPara, afinidade, jogarRodada, iniciarRodada, minutoRodada, substituicaoManual, aceitarEmprego, ampliarEstadio, podeAmpliar, custoObra, usarMoeda, MOEDAS, moeda: () => MOEDA, timePorId, divisaoDe, mediaForca, folha, salario, precoJogador, limiteEmprestimo, juros,
+return { precoPedido, precoBaseLeilao, motivoNaoCompra, comprarJogador, substituirNoJogo, sortearCopa, substituirLesionado, precoBilhete, contaPos, estrangeiros, proximaEtapa, jogarEtapa, leiloesPendentes, interesseHumano, resolverLeilao, renovarContrato, exigencia, aceitarExigencia, motivoNaoSai, podeSair, TABELA, MATRIZ, trocarVez, anoDe, ESQUEMAS_ESPECIAIS, criarJogo, cotasDosPaises, ofertasLeilao, venderPara, afinidade, jogarRodada, iniciarRodada, minutoRodada, substituicaoManual, aceitarEmprego, ampliarEstadio, podeAmpliar, custoObra, usarMoeda, MOEDAS, moeda: () => MOEDA, timePorId, divisaoDe, mediaForca, folha, salario, precoJogador, limiteEmprestimo, juros,
   capacidade, dinheiro, pedirEmprestimo, pagarEmprestimo, venderJogador, melhorOfertaPor, responderPedido, escalar, categoria,
   FORMACOES, POS, NOME_POS, TEMPERAMENTO, MOEDA, TABELA, criarRng, setRng: (r) => { R = r; }, interno: { oferta, utilidade, atributosDoNome } };
 })();
